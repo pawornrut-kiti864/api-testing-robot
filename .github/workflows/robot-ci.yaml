@@ -5,13 +5,17 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-  # ⏰ Schedule run every day at 10:00 (UTC)
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 3 * * *"  # 10:00 AM Thailand
   workflow_dispatch:
 
 jobs:
-  test:
+
+  # =========================
+  # 🧪 STAGE 1: SETUP
+  # =========================
+  setup:
+    name: Setup Environment
     runs-on: ubuntu-latest
 
     steps:
@@ -28,13 +32,55 @@ jobs:
           pip install robotframework
           pip install robotframework-requests
 
-      - name: Run Robot tests
-        run: |
-          python -m robot --outputdir results tests/
+  # =========================
+  # 🧪 STAGE 2: TEST
+  # =========================
+  test:
+    name: Run API Tests
+    runs-on: ubuntu-latest
+    needs: setup
 
-      - name: Upload reports
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install robotframework
+          pip install robotframework-requests
+
+      - name: Run Robot Tests
+        run: |
+          robot -d results tests/
+
+      - name: Upload results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: robot-report
+          name: robot-results
           path: results/
+
+  # =========================
+  # 📊 STAGE 3: REPORT
+  # =========================
+  report:
+    name: Publish Report
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: robot-results
+
+      - name: Show summary
+        run: |
+          echo "✅ Robot Framework execution completed" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Check artifacts for report.html" >> $GITHUB_STEP_SUMMARY
